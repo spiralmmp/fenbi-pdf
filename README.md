@@ -9,16 +9,25 @@
 
 > 本工具仅用于导出**本人已购买或有权访问**的试卷内容，不会绕过登录、会员、付费或任何访问控制。请遵守粉笔的用户协议与版权规定，不要传播导出内容。
 
+> **平台说明**：当前版本仅在 **Linux** 上完成实际测试。Windows 和 macOS 理论上可以运行，但**尚未实测**，请按对应平台的说明自行测试。
+
 ## 环境要求
 
+| 平台 | 实测状态 | Chrome 查找位置 |
+| --- | --- | --- |
+| Linux | **已实测** | `/usr/bin/google-chrome`、`chromium` 等，以及 PATH 中的 `msedge` / `brave` |
+| Windows 10/11 | 未实测，需自行测试 | `C:\Program Files\Google\Chrome\Application\chrome.exe` 等 |
+| macOS | 未实测，需自行测试 | `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome` |
+
+通用要求：
+
 - Node.js 22 或更高版本（使用内置 `fetch` 和全局 `WebSocket`，无需安装依赖）
-- Chrome / Chromium / Edge
+- Chrome / Chromium / Edge；自动查找失败时可用 `--chrome` 指定路径
 - 首次登录需要图形界面；登录完成后可使用 `--headless`
 - 字体（可选，仅影响排版外观）：
-  - Times New Roman（西文）
-  - Noto Sans CJK SC（中文）
+  - 西文：Times New Roman
+  - 中文：Noto Sans CJK SC
   - 缺失时 Chrome 会自动回退到系统字体，PDF 仍可正常生成，但字宽和分页可能不同
-  - Linux 安装示例：`noto-fonts-cjk`（Arch）、`fonts-noto-cjk`（Debian/Ubuntu）
 
 ## 安装
 
@@ -27,7 +36,65 @@ git clone https://github.com/spiralmmp/fenbi-pdf.git
 cd fenbi-pdf
 ```
 
-无需 `npm install`。
+无需 `npm install`。各平台的准备步骤如下。
+
+### Windows
+
+1. 安装 Node.js 22 或更高版本：从 [nodejs.org](https://nodejs.org/) 下载 LTS 安装包，或运行：
+   ```powershell
+   winget install OpenJS.NodeJS.LTS
+   ```
+   安装完成后重新打开 PowerShell。
+2. 安装 Chrome 或 Edge。
+3. 进入项目目录并运行：
+   ```powershell
+   cd $HOME\fenbi-pdf
+   node index.mjs "https://spa.fenbi.com/ti/exam/solution/..."
+   ```
+4. 找不到浏览器时手动指定路径：
+   ```powershell
+   node index.mjs "<URL>" --chrome "C:\Program Files\Google\Chrome\Application\chrome.exe"
+   ```
+5. 字体：Times New Roman 系统自带，中文会自动回退到微软雅黑。想要和 Linux 一致的排版，可另行安装 Noto Sans CJK SC。
+
+### macOS
+
+1. 安装 Node.js 22 或更高版本：
+   ```bash
+   brew install node
+   ```
+   或从 [nodejs.org](https://nodejs.org/) 下载安装包。
+2. 安装 Google Chrome。
+3. 进入项目目录并运行：
+   ```bash
+   cd ~/fenbi-pdf
+   node index.mjs "https://spa.fenbi.com/ti/exam/solution/..."
+   ```
+4. 找不到浏览器时手动指定路径：
+   ```bash
+   node index.mjs "<URL>" --chrome "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+   ```
+5. 字体：Times New Roman 系统自带，中文会自动回退到苹方。需要完全一致的排版可安装 Noto Sans CJK SC。
+
+### Linux
+
+1. 安装 Node.js 22 或更高版本，例如 Arch：
+   ```bash
+   sudo pacman -S nodejs
+   ```
+   Debian/Ubuntu 建议通过 NodeSource 或 nvm 安装较新版本。
+2. 安装 Chrome / Chromium。
+3. 安装中文字体（推荐）：
+   ```bash
+   sudo pacman -S noto-fonts-cjk
+   # Debian/Ubuntu: sudo apt install fonts-noto-cjk
+   ```
+4. 如需与默认排版完全一致，再安装 Times New Roman（`ttf-mscorefonts-installer` 或发行版对应包）。
+5. 进入项目目录并运行：
+   ```bash
+   cd ~/fenbi-pdf
+   node index.mjs "https://spa.fenbi.com/ti/exam/solution/..."
+   ```
 
 ## 使用
 
@@ -42,6 +109,8 @@ node index.mjs
 ```bash
 node index.mjs "https://spa.fenbi.com/ti/exam/solution/..."
 ```
+
+> URL 中可能包含 `?`、`&` 等字符，Windows PowerShell / cmd 下请务必用双引号包住整个 URL。
 
 ### 首次登录
 
@@ -80,6 +149,16 @@ PDF 默认写入 `output/`，文件名由试卷标题和时间戳组成，例如
 output/粉笔_<试卷名>_<日期-时间>.pdf
 ```
 
+自定义输出目录：
+
+```bash
+# macOS / Linux
+node index.mjs "<URL>" --out ~/Documents/fenbi
+
+# Windows PowerShell
+node index.mjs "<URL>" --out "$HOME\Documents\fenbi"
+```
+
 ## 工作原理
 
 1. 启动使用独立配置目录的 Chrome
@@ -105,6 +184,7 @@ test/                        本地测试页面
 
 ## 已知限制
 
+- 仅在 Linux 上实测；Windows / macOS 未实测，可能需要自行调整 Chrome 路径或字体
 - 一次只处理一份试卷
 - 需要账号对该试卷有访问权限；未购买或无权限的内容不会导出
 - 新版粉笔解析页若接口识别失败，默认停止并报错，避免把推荐题等内容混进来；确需尝试页面解析可加 `--no-api`
@@ -120,7 +200,22 @@ test/                        本地测试页面
 
 **提示找不到 Chrome**
 
-安装 Chrome/Chromium，或用 `--chrome /path/to/chrome` 指定路径。
+安装 Chrome/Chromium，或用 `--chrome` 指定路径：
+
+```bash
+# Windows PowerShell
+node index.mjs "<URL>" --chrome "C:\Program Files\Google\Chrome\Application\chrome.exe"
+
+# macOS
+node index.mjs "<URL>" --chrome "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+
+# Linux
+node index.mjs "<URL>" --chrome /usr/bin/google-chrome
+```
+
+**Windows / macOS 能用吗？**
+
+理论上可以，代码中已经包含对应平台的 Chrome 路径查找。但当前版本只在 Linux 上实测过，Windows 和 macOS 尚未验证，请按上面的平台说明自行测试；遇到问题可加 `--debug` 排查。
 
 **导出 0 题或提示接口失败**
 
