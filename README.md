@@ -323,6 +323,10 @@ node index.mjs "<URL>" --chrome /usr/bin/google-chrome-stable
 
 `browser-profile/` 是本机登录状态，不随仓库同步，在新机器上重新 `--login` 即可。
 
+## 更新日志
+
+- 2026-11-02：优化了答案可读性。
+
 ## 隐私与安全
 
 - 工具不会收集或上传任何数据，所有请求只发往粉笔和本地 Chrome
