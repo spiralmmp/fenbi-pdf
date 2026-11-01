@@ -71,6 +71,8 @@ cd fenbi-pdf
 
 无需 `npm install`。各平台的准备步骤如下。
 
+> 下面的命令假设仓库克隆在用户主目录；如果放在其他位置，请把 `~/fenbi-pdf`（macOS/Linux）或 `$HOME\fenbi-pdf`（Windows）换成实际路径。
+
 ### Windows
 
 1. 安装 Node.js 22 或更高版本：从 [nodejs.org](https://nodejs.org/) 下载 LTS 安装包，或运行：
@@ -176,7 +178,7 @@ node index.mjs --login
 
 ### 输出
 
-PDF 默认写入**项目目录下的 `output/`**（与 `index.mjs` 同级的文件夹），不是系统的“下载”目录。导出结束时终端会打印完整路径：
+PDF 默认写入**项目目录下的 `output/`**（与 `index.mjs` 同级的文件夹），不是系统的“下载”目录。`output/` 不在 Git 仓库中是正常的：它在首次导出时自动创建，并已被 `.gitignore` 忽略，避免试卷内容进入公开仓库。导出结束时终端会打印完整路径：
 
 ```
 PDF：/path/to/fenbi-pdf/output/粉笔_<试卷名>_20261101-1430.pdf
@@ -215,6 +217,9 @@ lib/extract-generic.mjs      通用页面提取
 lib/page-scripts.mjs         页面内执行脚本
 lib/render.mjs               HTML 排版与 PDF 渲染
 test/                        本地测试页面
+browser-profile/             运行时生成：登录状态（已忽略，勿分享）
+output/                      运行时生成：导出的 PDF（已忽略）
+debug/                       运行时生成：调试文件（已忽略）
 ```
 
 ## 已知限制
@@ -245,7 +250,7 @@ node index.mjs "<URL>" --chrome "C:\Program Files\Google\Chrome\Application\chro
 node index.mjs "<URL>" --chrome "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 
 # Linux
-node index.mjs "<URL>" --chrome /usr/bin/google-chrome
+node index.mjs "<URL>" --chrome /usr/bin/google-chrome-stable
 ```
 
 **Windows / macOS 能用吗？**
@@ -258,7 +263,7 @@ node index.mjs "<URL>" --chrome /usr/bin/google-chrome
 
 **找不到导出的 PDF**
 
-默认在项目目录的 `output/`，不是系统“下载”目录。查看终端最后打印的 `PDF：...` 绝对路径；如果用过 `--out`，则去指定目录。只运行 `--login` 不会生成 PDF。
+默认在项目目录的 `output/`，不是系统“下载”目录。仓库里看不到 `output/` 也正常：它首次导出时才创建，并且不会提交到 Git。查看终端最后打印的 `PDF：...` 绝对路径；如果用过 `--out`，则去指定目录。只运行 `--login` 不会生成 PDF。
 
 **换电脑后需要重新登录**
 
