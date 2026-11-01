@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -43,6 +44,9 @@ PDF 按题号整理，仅包含答案和解析，不包含题干、选项和材�
   --headless         使用无头浏览器（首次登录必须使用可见浏览器）
   --out <目录>       PDF 输出目录，默认 ./output
   --title <名称>     自定义 PDF 标题
+  --font <名称>      自定义中文字体（需本机已安装，默认宋体）
+  --font-latin <名称> 自定义西文字体（默认 Times New Roman）
+  --list-fonts       列出本机已安装字体后退出
   --wait <毫秒>      页面打开后的额外等待时间，默认 500
   --max-pages <数量> 最多翻页数，默认 60
   --chrome <路径>    指定 Chrome/Chromium 可执行文件
@@ -62,7 +66,103 @@ PDF 按题号整理，仅包含答案和解析，不包含题干、选项和材�
 示例：
   ${RUN_COMMAND} "https://spa.fenbi.com/ti/exam/solution/..." --out ~/Documents/fenbi
   ${RUN_COMMAND} --login
+  ${RUN_COMMAND} --list-fonts
+  ${RUN_COMMAND} "<答案解析页面URL>" --font "Noto Serif CJK SC"
 `);
+}
+
+function normalizeFontName(value, flag) {
+  const name = String(value || '').trim();
+  if (!name) throw new Error(`${flag} 需要字体名称。`);
+  if (name.length > 120) throw new Error(`${flag} 的字体名称过长。`);
+  if (/[<>"\r\n\u0000-\u001f]/.test(name)) throw new Error(`${flag} 的字体名称包含不支持的字符。`);
+  return name;
+}
+
+function parseInstalledFonts(kind, output) {
+  const names = new Set();
+  const add = (value) => {
+    const name = String(value || '').trim();
+    if (name) names.add(name);
+  };
+  if (kind === 'fc-list') {
+    for (const line of String(output).split(/\r?\n/)) {
+      for (const part of line.split(',')) add(part);
+    }
+  } else if (kind === 'system_profiler') {
+    for (const line of String(output).split(/\r?\n/)) {
+      const match = line.match(/^\s*Family:\s*(.+)$/i);
+      if (match) add(match[1]);
+    }
+  } else {
+    for (const line of String(output).split(/\r?\n/)) add(line);
+  }
+  return [...names].sort((a, b) => a.localeCompare(b, 'zh-CN'));
+}
+
+function systemFontAttempts() {
+  if (process.platform === 'win32') {
+    return [
+      {
+        command: 'powershell',
+        args: [
+          '-NoProfile',
+          '-NonInteractive',
+          '-Command',
+          '[Console]::OutputEncoding=[Text.Encoding]::UTF8; Add-Type -AssemblyName PresentationCore; [System.Windows.Media.Fonts]::SystemFontFamilies | ForEach-Object { $_.Source }',
+        ],
+        kind: 'lines',
+      },
+      {
+        command: 'powershell',
+        args: [
+          '-NoProfile',
+          '-NonInteractive',
+          '-Command',
+          '[Console]::OutputEncoding=[Text.Encoding]::UTF8; Add-Type -AssemblyName System.Drawing; [System.Drawing.FontFamily]::Families | ForEach-Object { $_.Name }',
+        ],
+        kind: 'lines',
+      },
+    ];
+  }
+  if (process.platform === 'darwin') {
+    return [
+      { command: 'system_profiler', args: ['SPFontsDataType'], kind: 'system_profiler' },
+      { command: 'fc-list', args: [':', 'family'], kind: 'fc-list' },
+    ];
+  }
+  return [{ command: 'fc-list', args: [':', 'family'], kind: 'fc-list' }];
+}
+
+function listSystemFonts() {
+  for (const attempt of systemFontAttempts()) {
+    try {
+      const output = execFileSync(attempt.command, attempt.args, {
+        encoding: 'utf8',
+        timeout: 30000,
+        maxBuffer: 16 * 1024 * 1024,
+        stdio: ['ignore', 'pipe', 'ignore'],
+      });
+      const fonts = parseInstalledFonts(attempt.kind, output);
+      if (fonts.length) return fonts;
+    } catch {}
+  }
+  return [];
+}
+
+function printFontList() {
+  const fonts = listSystemFonts();
+  if (!fonts.length) {
+    console.log('无法自动读取本机字体列表。');
+    console.log('Linux 可运行：fc-list : family');
+    console.log('macOS 可在“字体册”中查看，Windows 可在“设置 → 字体”中查看。');
+    return;
+  }
+  console.log(`本机已安装字体（${fonts.length}）：`);
+  for (const font of fonts) console.log(font);
+  console.log('');
+  console.log('中文字体：node index.mjs "<URL>" --font "<字体名>"');
+  console.log('西文字体：node index.mjs "<URL>" --font-latin "<字体名>"');
 }
 
 function parseArgs(argv) {
@@ -78,6 +178,9 @@ function parseArgs(argv) {
     maxPages: 60,
     out: path.join(ROOT, 'output'),
     title: '',
+    font: '',
+    fontLatin: '',
+    listFonts: false,
     chrome: '',
     help: false,
   };
@@ -142,6 +245,18 @@ function parseArgs(argv) {
       case '--title':
         options.title = readValue(inline, argv, index, token);
         if (inline === undefined) index++;
+        break;
+      case '--font':
+        options.font = normalizeFontName(readValue(inline, argv, index, token), token);
+        if (inline === undefined) index++;
+        break;
+      case '--font-latin':
+        options.fontLatin = normalizeFontName(readValue(inline, argv, index, token), token);
+        if (inline === undefined) index++;
+        break;
+      case '--list-fonts':
+        booleanFlag();
+        options.listFonts = true;
         break;
       case '--wait':
         options.wait = integer(readValue(inline, argv, index, token), token, 0, 120000);
@@ -353,7 +468,7 @@ async function capturePageDebug(session, directory, pageNumber, result, snapshot
   }
 }
 
-async function printHtmlToPdf(session, html, filePath) {
+async function printHtmlToPdf(session, html, filePath, fontOptions = {}) {
   await session.evaluate(makePrintScript(html), { timeout: 30000 });
   await sleep(350);
   let state = null;
@@ -371,7 +486,7 @@ async function printHtmlToPdf(session, html, filePath) {
     throw new Error('打印页面准备失败，已停止以免导出错误内容。');
   }
   await sleep(250);
-  const pdf = await session.printToPDF(makePdfOptions());
+  const pdf = await session.printToPDF(makePdfOptions('仅供个人学习使用', fontOptions));
   if (pdf.subarray(0, 4).toString() !== '%PDF') {
     throw new Error('浏览器返回的 PDF 数据无效。');
   }
@@ -648,6 +763,8 @@ async function exportPaper(session, url, options, context = {}) {
     url,
     generatedAt,
     engine,
+    fontCn: options.font,
+    fontLatin: options.fontLatin,
   });
 
   await mkdir(options.out, { recursive: true });
@@ -669,7 +786,10 @@ async function exportPaper(session, url, options, context = {}) {
   console.log('正在排版并生成 PDF...');
   let printInfo;
   try {
-    printInfo = await printHtmlToPdf(session, html, pdfPath);
+    printInfo = await printHtmlToPdf(session, html, pdfPath, {
+      fontCn: options.font,
+      fontLatin: options.fontLatin,
+    });
   } catch (error) {
     if (debugDirectory) await writeFile(path.join(debugDirectory, 'print.html'), html);
     throw error;
@@ -713,6 +833,10 @@ async function main() {
     options = parseArgs(process.argv.slice(2));
     if (options.help) {
       printHelp();
+      return;
+    }
+    if (options.listFonts) {
+      printFontList();
       return;
     }
     if (typeof WebSocket === 'undefined') {

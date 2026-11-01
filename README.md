@@ -5,6 +5,7 @@
 - 登录一次，之后直接粘贴链接即可导出
 - 优先调用粉笔解析接口，避免页面扫描导致的错漏
 - 生成真实文本 PDF，可搜索、可复制（公式和插图仍以图片保留）
+- 默认中文宋体、西文 Times New Roman，支持自定义本机已安装的字体
 - 零第三方依赖，只需要 Node.js 和 Chrome
 
 > 本工具仅用于导出**本人已购买或有权访问**的试卷内容，不会绕过登录、会员、付费或任何访问控制。请遵守粉笔的用户协议与版权规定，不要传播导出内容。
@@ -23,8 +24,8 @@
 | 网络 | 必需 | 能访问粉笔相关域名（`fenbi.com`、`spa.fenbi.com`、`tiku.fenbi.com`）及图片 CDN |
 | 图形界面 | 首次登录必需 | 扫码或账号登录需要可见浏览器；登录完成后可用 `--headless` |
 | Git | 可选 | 仅用于克隆仓库；也可以直接下载 ZIP |
-| Times New Roman | 可选 | 西文字体；缺失时自动回退 |
-| Noto Sans CJK SC | 可选 | 中文字体；缺失时自动回退 |
+| 宋体 / Songti / Noto Serif CJK 等 | 可选 | 默认中文字体优先宋体；缺失时自动回退到其他中文字体 |
+| Times New Roman | 可选 | 默认西文字体；缺失时回退到 Liberation Serif、Nimbus Roman 或系统衬线字体 |
 | npm / Python / 数据库 / OCR | 不需要 | 项目零第三方依赖，无构建步骤 |
 
 ### 已测试环境
@@ -32,7 +33,7 @@
 - 操作系统：Linux x86_64
 - Node.js：v26.12.1（最低要求 22）
 - 浏览器：Google Chrome 156.0.8078.79
-- 字体：Noto Sans CJK SC、Times New Roman
+- 字体：SimSun（宋体）、Times New Roman；另测试过 Noto Serif CJK SC + Arial 的自定义组合
 
 Windows 10/11 与 macOS **尚未实测**，请按对应平台说明自行测试。
 
@@ -80,11 +81,29 @@ node index.mjs "<URL>" --chrome "/path/to/browser"
 
 ### 字体说明
 
-默认字体栈为 Times New Roman（西文）+ Noto Sans CJK SC（中文），后接系统字体回退。字体不是运行必需项：
+默认字体栈不是写死单一字体，而是逐级回退：
 
-- 缺失时 Chrome 会自动使用系统字体，PDF 仍可生成
-- 缺少字体或 Chrome 版本不同，可能导致字宽、换行和分页与示例不同
-- 需要完全一致的效果时，安装这两个字体即可
+- 西文：Times New Roman → Liberation Serif → Nimbus Roman → 系统衬线字体
+- 中文：SimSun（宋体）→ 宋体别名 → Songti SC / STSong → Source Han Serif / Noto Serif CJK → AR PL UMing → 微软雅黑 / 苹方 / Noto Sans CJK → 系统无衬线字体
+
+因此即使本机没有宋体也能正常导出：会使用其他宋体类字体，或退到系统中文字体。只有系统完全没有中文字体时，中文才可能显示方框（Linux 可安装 `noto-fonts-cjk`）。
+
+字体不是运行必需项；缺少字体或 Chrome 版本不同，可能导致字宽、换行和分页与示例不同。
+
+自定义字体：
+
+```bash
+# 列出本机已安装字体
+node index.mjs --list-fonts
+
+# 自定义中文字体（默认宋体）
+node index.mjs "<URL>" --font "Noto Serif CJK SC"
+
+# 自定义西文字体（默认 Times New Roman）
+node index.mjs "<URL>" --font-latin "Arial"
+```
+
+指定的字体必须已经安装在本机；如果字体名称不存在，会自动回退到默认字体链，不会导致导出失败。
 
 ## 安装
 
@@ -114,7 +133,7 @@ cd fenbi-pdf
    ```powershell
    node index.mjs "<URL>" --chrome "C:\Program Files\Google\Chrome\Application\chrome.exe"
    ```
-5. 字体：Times New Roman 系统自带，中文会自动回退到微软雅黑。想要和 Linux 一致的排版，可另行安装 Noto Sans CJK SC。
+5. 字体：Times New Roman 和宋体（SimSun）系统自带，默认就是宋体 + Times New Roman。如果系统精简掉了宋体，会自动回退到微软雅黑等其他中文字体。
 
 ### macOS
 
@@ -133,7 +152,7 @@ cd fenbi-pdf
    ```bash
    node index.mjs "<URL>" --chrome "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
    ```
-5. 字体：Times New Roman 系统自带，中文会自动回退到苹方。需要完全一致的排版可安装 Noto Sans CJK SC。
+5. 字体：Times New Roman 和 Songti SC（宋体）系统自带，默认使用 Songti SC；如果缺失会回退到苹方等其他中文字体。
 
 ### Linux
 
@@ -143,12 +162,12 @@ cd fenbi-pdf
    ```
    Debian/Ubuntu 建议通过 NodeSource 或 nvm 安装较新版本。
 2. 安装 Chrome / Chromium。
-3. 安装中文字体（推荐）：
+3. 安装中文字体（推荐，包含 Noto Serif CJK，宋体缺失时作为回退）：
    ```bash
    sudo pacman -S noto-fonts-cjk
    # Debian/Ubuntu: sudo apt install fonts-noto-cjk
    ```
-4. 如需与默认排版完全一致，再安装 Times New Roman（`ttf-mscorefonts-installer` 或发行版对应包）。
+4. 如需严格使用宋体，可自行安装 SimSun；西文如需严格使用 Times New Roman，可安装 `ttf-mscorefonts-installer` 或发行版对应包。两者缺失都会自动回退。
 5. 进入项目目录并运行：
    ```bash
    cd ~/fenbi-pdf
@@ -191,6 +210,9 @@ node index.mjs --login
 | `--headless` | 使用无头浏览器（必须先完成过一次可见登录） |
 | `--out <目录>` | PDF 输出目录，默认 `./output` |
 | `--title <名称>` | 自定义 PDF 标题 |
+| `--font <名称>` | 自定义中文字体（需本机已安装，默认宋体） |
+| `--font-latin <名称>` | 自定义西文字体（默认 Times New Roman） |
+| `--list-fonts` | 列出本机已安装字体后退出 |
 | `--wait <毫秒>` | 页面打开后的额外等待时间，默认 `500` |
 | `--max-pages <数量>` | 最多翻页数，默认 `60` |
 | `--chrome <路径>` | 指定 Chrome/Chromium 可执行文件 |
@@ -253,7 +275,7 @@ debug/                       运行时生成：调试文件（已忽略）
 - 需要账号对该试卷有访问权限；未购买或无权限的内容不会导出
 - 新版粉笔解析页若接口识别失败，默认停止并报错，避免把推荐题等内容混进来；确需尝试页面解析可加 `--no-api`
 - 公式在粉笔接口中仅提供 PNG 图片，原始 LaTeX 为加密数据，无法直接还原为文本
-- 字体缺失、Chrome 版本不同都可能导致 PDF 分页和字宽略有差异
+- 缺少默认字体会自动回退，不会导致导出失败，但不同字体或 Chrome 版本可能导致 PDF 分页和字宽略有差异
 - 粉笔页面结构或接口变更可能导致提取失败
 
 ## 常见问题
@@ -280,6 +302,14 @@ node index.mjs "<URL>" --chrome /usr/bin/google-chrome-stable
 **Windows / macOS 能用吗？**
 
 理论上可以，代码中已经包含对应平台的 Chrome 路径查找。但当前版本只在 Linux 上实测过，Windows 和 macOS 尚未验证，请按上面的平台说明自行测试；遇到问题可加 `--debug` 排查。
+
+**没有宋体会不会导出失败？**
+
+不会。默认中文字体会按字体栈依次回退到其他宋体类字体或系统中文字体；只有系统完全没有中文字体时才可能显示方框，此时安装 `noto-fonts-cjk` 即可。
+
+**自定义字体没有生效？**
+
+先运行 `node index.mjs --list-fonts` 确认字体家族名称；指定的字体不存在时会自动回退到默认字体链。
 
 **导出 0 题或提示接口失败**
 
