@@ -11,7 +11,40 @@
 
 > **平台说明**：当前版本仅在 **Linux** 上完成实际测试。Windows 和 macOS 理论上可以运行，但**尚未实测**，请按对应平台的说明自行测试。
 
-## 环境要求
+## 依赖环境
+
+### 依赖清单
+
+| 依赖 | 是否必需 | 版本 / 说明 |
+| --- | --- | --- |
+| Node.js | 必需 | 22 或更高版本；使用内置 `fetch`、全局 `WebSocket` 和 ESM，无需任何 npm 包 |
+| Chrome / Chromium / Edge | 必需 | 较新版本即可；负责登录、读取接口、渲染和打印 PDF |
+| 粉笔账号 | 必需 | 账号需对目标试卷有访问权限 |
+| 网络 | 必需 | 能访问粉笔相关域名（`fenbi.com`、`spa.fenbi.com`、`tiku.fenbi.com`）及图片 CDN |
+| 图形界面 | 首次登录必需 | 扫码或账号登录需要可见浏览器；登录完成后可用 `--headless` |
+| Git | 可选 | 仅用于克隆仓库；也可以直接下载 ZIP |
+| Times New Roman | 可选 | 西文字体；缺失时自动回退 |
+| Noto Sans CJK SC | 可选 | 中文字体；缺失时自动回退 |
+| npm / Python / 数据库 / OCR | 不需要 | 项目零第三方依赖，无构建步骤 |
+
+### 已测试环境
+
+- 操作系统：Linux x86_64
+- Node.js：v26.12.1（最低要求 22）
+- 浏览器：Google Chrome 156.0.8078.79
+- 字体：Noto Sans CJK SC、Times New Roman
+
+Windows 10/11 与 macOS **尚未实测**，请按对应平台说明自行测试。
+
+### 运行条件
+
+- 需要对项目目录有写权限；运行时会在项目下创建 `browser-profile/`、`output/`、`debug/`
+- 首次运行会生成 Chrome 配置目录，可能占用几十到几百 MB
+- Chrome 调试端口随机分配且仅本机使用，无需开放入站端口
+- 如使用代理，请确保系统代理或 Chrome 能正常访问粉笔
+- 一般不需要管理员权限；Linux 容器或 root 环境如遇沙箱启动失败，可临时设置 `CHROME_NO_SANDBOX=1`（会降低浏览器安全性）
+
+### 平台与 Chrome 查找位置
 
 | 平台 | 实测状态 | Chrome 查找位置 |
 | --- | --- | --- |
@@ -19,15 +52,15 @@
 | Windows 10/11 | 未实测，需自行测试 | `C:\Program Files\Google\Chrome\Application\chrome.exe` 等 |
 | macOS | 未实测，需自行测试 | `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome` |
 
-通用要求：
+自动查找失败时，可用 `--chrome <路径>` 手动指定，或设置环境变量 `CHROME_PATH`。
 
-- Node.js 22 或更高版本（使用内置 `fetch` 和全局 `WebSocket`，无需安装依赖）
-- Chrome / Chromium / Edge；自动查找失败时可用 `--chrome` 指定路径
-- 首次登录需要图形界面；登录完成后可使用 `--headless`
-- 字体（可选，仅影响排版外观）：
-  - 西文：Times New Roman
-  - 中文：Noto Sans CJK SC
-  - 缺失时 Chrome 会自动回退到系统字体，PDF 仍可正常生成，但字宽和分页可能不同
+### 字体说明
+
+默认字体栈为 Times New Roman（西文）+ Noto Sans CJK SC（中文），后接系统字体回退。字体不是运行必需项：
+
+- 缺失时 Chrome 会自动使用系统字体，PDF 仍可生成
+- 缺少字体或 Chrome 版本不同，可能导致字宽、换行和分页与示例不同
+- 需要完全一致的效果时，安装这两个字体即可
 
 ## 安装
 
