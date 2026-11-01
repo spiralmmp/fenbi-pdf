@@ -54,6 +54,30 @@ Windows 10/11 与 macOS **尚未实测**，请按对应平台说明自行测试�
 
 自动查找失败时，可用 `--chrome <路径>` 手动指定，或设置环境变量 `CHROME_PATH`。
 
+### 浏览器兼容性
+
+工具通过 Chrome DevTools Protocol 控制浏览器，并调用 `Page.printToPDF` 生成 PDF，因此需要 Chromium 内核：
+
+| 浏览器 | 支持情况 |
+| --- | --- |
+| Google Chrome | **已实测**，推荐 |
+| Chromium | 理论支持，未实测 |
+| Microsoft Edge | 理论支持，未实测；可自动查找 |
+| Brave | 理论支持，未实测；Linux 下可自动查找 |
+| Vivaldi / Opera 等其他 Chromium 浏览器 | 理论支持，未实测；通常需用 `--chrome` 指定路径 |
+| Firefox | 不支持，不使用 CDP，也没有 `Page.printToPDF` |
+| Safari | 不支持 |
+
+360、QQ 等 Chromium 套壳浏览器未验证，内核版本可能较旧，不保证可用。
+
+自动查找只覆盖常见浏览器的默认安装位置，其他 Chromium 浏览器请手动指定：
+
+```bash
+node index.mjs "<URL>" --chrome "/path/to/browser"
+```
+
+不同浏览器或版本生成的 PDF 在字体嵌入和分页上可能略有差异；切换浏览器后如果登录态异常，重新运行 `--login` 即可。
+
 ### 字体说明
 
 默认字体栈为 Times New Roman（西文）+ Noto Sans CJK SC（中文），后接系统字体回退。字体不是运行必需项：
