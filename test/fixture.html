@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>示例试卷：言语理解与表达 - 粉笔</title>
+<style>
+  :root { color-scheme: light; }
+  body { margin: 0; background: #f2f4f7; color: #1f2937; font-family: "Noto Sans CJK SC", sans-serif; }
+  h1 { max-width: 900px; margin: 24px auto 10px; font-size: 24px; }
+  .toolbar { max-width: 900px; margin: 0 auto 16px; color: #6b7280; font-size: 13px; }
+  #solution-root { max-width: 900px; margin: 0 auto; }
+  .solution-item { margin: 0 0 18px; padding: 20px 24px; background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; }
+  .options-title { margin-bottom: 8px; }
+  .ques-type { display: inline-block; padding: 2px 9px; color: #1d4ed8; background: #eff6ff; border-radius: 10px; font-size: 12px; }
+  .question-content { line-height: 1.8; font-size: 16px; }
+  .fb-ng-question-material { margin-bottom: 10px; padding: 10px 12px; background: #f8fafc; border-left: 3px solid #94a3b8; color: #475569; }
+  ul.choice-options, ul.truefalse-options { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; padding: 0; margin: 14px 0; list-style: none; }
+  ul.choice-options li, ul.truefalse-options li { display: flex; gap: 8px; padding: 8px 10px; border: 1px solid #e5e7eb; border-radius: 6px; }
+  .fb-radioInput { color: #475569; font-weight: 700; }
+  .fb-ng-solution-detail-answer { margin: 12px 0; padding: 8px 12px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; color: #166534; font-weight: 700; }
+  .fb-ng-solution-detail-item { margin-top: 12px; padding-top: 10px; border-top: 1px dashed #dbe1e8; }
+  .fb-ng-solution-detail-item h4 { margin: 0 0 6px; color: #1d4ed8; font-size: 15px; }
+  .solution-content { line-height: 1.8; color: #374151; }
+  .analysis-figure { margin: 10px 0; padding: 8px; border: 1px solid #dbeafe; background: #f8fbff; }
+  .analysis-figure img { display: block; width: 320px; max-width: 100%; height: auto; }
+  .expand-btn { margin-top: 10px; padding: 7px 14px; color: #b91c1c; background: #fff; border: 1px solid #fca5a5; border-radius: 6px; cursor: pointer; }
+  .vip-lock { margin-top: 10px; padding: 8px 12px; color: #92400e; background: #fffbeb; border: 1px solid #fcd34d; border-radius: 6px; }
+  .action-row { margin-top: 10px; color: #9ca3af; font-size: 12px; display: flex; gap: 16px; }
+  fb-pager { display: flex; align-items: center; justify-content: center; gap: 14px; max-width: 900px; margin: 24px auto 60px; }
+  fb-pager .active { font-weight: 800; color: #b91c1c; }
+  .houpage { padding: 8px 16px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; cursor: pointer; }
+  .houpage.disabled { color: #9ca3af; background: #f1f5f9; cursor: not-allowed; }
+</style>
+</head>
+<body>
+<h1>示例试卷：言语理解与表达</h1>
+<div class="toolbar">模拟粉笔解析页结构，仅用于本地自动化测试。</div>
+<div id="solution-root"></div>
+<fb-pager id="pager"></fb-pager>
+
+<script>
+const state = { page: 0 };
+
+function diagramDataUri(label, color) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="86">
+    <rect x="1" y="1" width="318" height="84" rx="10" fill="#eff6ff" stroke="${color}" stroke-width="2"/>
+    <text x="160" y="50" text-anchor="middle" font-family="sans-serif" font-size="20" fill="#1e3a8a">${label}</text>
+  </svg>`;
+  const bytes = new TextEncoder().encode(svg);
+  return 'data:image/svg+xml;base64,' + btoa(String.fromCharCode(...bytes));
+}
+
+const figureHtml = (label) => `<figure class="analysis-figure">
+  <img alt="${label}" data-src="${diagramDataUri(label, '#2563eb')}">
+  <figcaption>${label}</figcaption>
+</figure>`;
+
+const pages = [
+  [
+    {
+      number: 1,
+      type: '单选题',
+      material: '某市图书馆近年推出“数字阅读专区”，读者可以在线借阅电子书、参加线上读书会。调查显示，使用数字阅读的读者数量增长很快，但深度阅读时长并未同步增加。研究者认为，数字阅读真正需要关注的不是访问量，而是读者能否形成持续、专注的阅读。',
+      stem: '根据材料，作者认为数字阅读最需要关注的是：',
+      options: [
+        { label: 'A', text: '电子书资源的数量', correct: false },
+        { label: 'B', text: '读者的深度理解与持续专注', correct: true },
+        { label: 'C', text: '阅读设备的价格', correct: false },
+        { label: 'D', text: '线上活动的参与人数', correct: false },
+      ],
+      answer: 'B',
+      button: '展开完整解析',
+      analysis: [
+        {
+          label: '解析',
+          html: `<p><strong>文段结构：</strong>材料先介绍数字阅读专区的做法，再通过调查指出“访问量增长但深度阅读时长未同步增加”，最后用“研究者认为”引出观点。</p>
+          <p>转折后的观点是重点：真正需要关注的不是访问量，而是能否形成持续、专注的阅读。因此答案选 <strong>B</strong>。</p>
+          <ul><li>A、D 两项对应的是访问量、参与规模，属于文段中不强调的数据。</li><li>C 项“设备价格”材料没有涉及。</li></ul>
+          ${figureHtml('材料结构示意图')}`,
+        },
+        {
+          label: '考点',
+          html: '<p>片段阅读 · 主旨概括 · 转折之后是重点</p>',
+        },
+      ],
+      gated: false,
+    },
+    {
+      number: 2,
+      type: '多选题',
+      stem: '下列句子中，表述正确的有：',
+      options: [
+        { label: 'A', text: '数字阅读的访问量增长并不等同于深度阅读增加', correct: true },
+        { label: 'B', text: '材料认为应停止发展数字阅读', correct: false },
+        { label: 'C', text: '持续、专注的阅读是作者关注的重点', correct: true },
+        { label: 'D', text: '线上读书会一定能提高专注力', correct: false },
+      ],
+      answer: 'A、C',
+      button: '查看解析',
+      analysis: [
+        {
+          label: '解析',
+          html: `<p>材料只指出数字阅读存在“访问量增长、深度阅读时长未同步增加”的现象，并没有否定数字阅读，也没有断言线上读书会一定能提高专注力，因此 B、D 属于过度推断。</p>
+          <p>由“真正需要关注的是……持续、专注的阅读”可知，A、C 表述正确。</p>`,
+        },
+      ],
+      gated: false,
+    },
+  ],
+  [
+    {
+      number: 3,
+      type: '判断题',
+      material: '一项追踪调查发现，每天使用电子设备阅读超过两小时的青少年，在连续阅读长文时的平均停留时间更短。研究者提醒，阅读媒介的变化可能影响注意力的持续方式，但这并不意味着电子阅读本身必然有害。',
+      stem: '研究者认为电子阅读本身必然有害。',
+      options: [
+        { label: 'A', text: '对', correct: false },
+        { label: 'B', text: '错', correct: true },
+      ],
+      answer: 'B',
+      button: '展开解析',
+      analysis: [
+        {
+          label: '解析',
+          html: '<p>材料最后一句明确说“这并不意味着电子阅读本身必然有害”，题干删去了“不”，改变了原意，因此说法错误，答案选 B。</p>',
+        },
+        {
+          label: '知识点',
+          html: '<p>判断题 · 否定词 · 语义偷换</p>',
+        },
+      ],
+      gated: false,
+    },
+    {
+      number: 4,
+      type: '单选题',
+      stem: '材料中“这一变化”指的是：',
+      options: [
+        { label: 'A', text: '图书馆取消纸质书借阅', correct: false },
+        { label: 'B', text: '青少年不再阅读长文', correct: false },
+        { label: 'C', text: '所有读者都改用了电子设备', correct: false },
+        { label: 'D', text: '阅读媒介变化带来的注意力持续方式改变', correct: true },
+      ],
+      answer: 'D',
+      button: '查看答案与解析',
+      analysis: [
+        {
+          label: '解析',
+          html: `<p>“这一变化”是代词指代题，通常需要向前寻找最近且能被后文解释的内容。前文谈到阅读媒介变化可能影响“注意力的持续方式”，与 D 项对应。</p>
+          ${figureHtml('代词指代范围示意图')}`,
+        },
+      ],
+      gated: true,
+    },
+  ],
+];
+
+function optionHtml(option) {
+  return `<li class="${option.correct ? 'right-options' : ''}">
+    <span class="fb-radioInput">${option.label}</span>
+    <span class="opt-content">${option.text}</span>
+  </li>`;
+}
+
+function questionHtml(question) {
+  const material = question.material
+    ? `<div class="fb-ng-question-material"><div class="material-content">${question.material}</div></div>`
+    : '';
+  const optionsClass = question.type === '判断题' ? 'truefalse-options' : 'choice-options';
+  const drawerId = `drawer-${question.number}`;
+  return `<article class="solution-item" id="question-${question.number}">
+    <a name="${question.number}" class="q-anchor"></a>
+    <app-fb-solution>
+      <fb-ng-solution>
+        <div class="fb-solution-sub">
+          <div class="ques-options-dry">
+            <div class="options-title"><span class="ques-type">${question.type}</span></div>
+            <div class="question-content">
+              ${material}
+              <p>${question.stem}</p>
+            </div>
+            <ul class="${optionsClass}">
+              ${question.options.map(optionHtml).join('')}
+            </ul>
+          </div>
+          <div class="fb-ng-solution-detail">
+            <div class="fb-ng-solution-detail-answer"><span class="correct-text">正确答案是：${question.answer}</span></div>
+            <div id="${drawerId}" class="analysis-drawer" hidden></div>
+            ${question.gated ? '<div class="vip-lock">会员专享：完整解析与视频讲解</div>' : ''}
+            <div class="action-row"><span>收藏</span><span>纠错</span><span>笔记</span></div>
+          </div>
+        </div>
+      </fb-ng-solution>
+    </app-fb-solution>
+    <button class="expand-btn" data-drawer="${drawerId}" data-analyses='${encodeURIComponent(JSON.stringify(question.analysis))}'>${question.button}</button>
+  </article>`;
+}
+
+function hydrateImages(root) {
+  for (const image of root.querySelectorAll('img[data-src]')) {
+    image.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
+  }
+}
+
+function bindExpanders() {
+  for (const button of document.querySelectorAll('.expand-btn')) {
+    button.addEventListener('click', () => {
+      const drawer = document.getElementById(button.dataset.drawer);
+      const analyses = JSON.parse(decodeURIComponent(button.dataset.analyses));
+      drawer.innerHTML = analyses.map((section) => `<section class="fb-ng-solution-detail-item">
+        <h4>${section.label}</h4>
+        <div class="solution-content">${section.html}</div>
+      </section>`).join('');
+      drawer.hidden = false;
+      hydrateImages(drawer);
+      button.remove();
+    });
+  }
+}
+
+function renderPager() {
+  const last = state.page === pages.length - 1;
+  document.getElementById('pager').innerHTML = `
+    <span>${state.page + 1}</span><span>/ ${pages.length}</span>
+    <span class="active">${state.page + 1}</span>
+    <button class="houpage ${last ? 'disabled' : ''}" ${last ? 'disabled' : ''}>下一页</button>
+    <span class="page-total">共 ${pages.length} 页</span>
+  `;
+  document.querySelector('.houpage').addEventListener('click', () => {
+    if (state.page < pages.length - 1) {
+      state.page++;
+      render();
+    }
+  });
+}
+
+function render() {
+  const root = document.getElementById('solution-root');
+  root.innerHTML = pages[state.page].map(questionHtml).join('');
+  hydrateImages(root);
+  bindExpanders();
+  renderPager();
+  window.scrollTo(0, 0);
+}
+
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+# Login cookies and browser state
+browser-profile/
+.login-ok
+
+# Generated output
+output/
+debug/
+
+# Test artifacts
+test/profile*/
+test/out*/
+
+# Dependencies and OS files
+node_modules/
+.DS_Store
+Thumbs.db
