@@ -105,6 +105,8 @@ node index.mjs "<URL>" --font-latin "Arial"
 
 指定的字体必须已经安装在本机；如果字体名称不存在，会自动回退到默认字体链，不会导致导出失败。
 
+如果 Linux 上的 fontconfig 把宋体等字体映射到了别的字体（例如自定义字体渲染时把 `SimSun` 指向 Noto Sans），导出用的 Chrome 会自动绕过这份用户字体配置，优先使用实际安装的宋体；不会修改你的全局字体设置。
+
 ## 安装
 
 ```bash
@@ -311,6 +313,10 @@ node index.mjs "<URL>" --chrome /usr/bin/google-chrome-stable
 
 先运行 `node index.mjs --list-fonts` 确认字体家族名称；指定的字体不存在时会自动回退到默认字体链。
 
+**已经安装了宋体，导出的 PDF 却不是宋体？**
+
+通常是 fontconfig 设置了字体别名（例如把 `SimSun` 映射到 Noto Sans）。Linux 下工具会自动检测并绕过这类用户字体配置，不改动全局设置；可运行 `fc-match SimSun` 查看当前实际映射。
+
 **导出 0 题或提示接口失败**
 
 确认 URL 是“答案解析”页面（包含 `/ti/exam/solution/`），而不是试卷页或练习页；加 `--debug` 后会保存现场 HTML、截图和提取结果便于排查。
@@ -326,6 +332,7 @@ node index.mjs "<URL>" --chrome /usr/bin/google-chrome-stable
 ## 更新日志
 
 - 2026-11-02：优化了答案可读性。
+- 2026-11-02：修复了系统字体别名导致 PDF 正文未使用宋体的问题。
 
 ## 隐私与安全
 

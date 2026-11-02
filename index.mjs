@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 import { execFileSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { existsSync, rmSync } from 'node:fs';
+import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
@@ -26,6 +27,7 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const ENTRY = path.relative(process.cwd(), fileURLToPath(import.meta.url)) || 'index.mjs';
 const RUN_COMMAND = `node ${/\s/.test(ENTRY) ? `"${ENTRY}"` : ENTRY}`;
 let currentSession = null;
+let fontConfigHome = null;
 let shuttingDown = false;
 
 function printHelp() {
@@ -148,6 +150,59 @@ function listSystemFonts() {
     } catch {}
   }
   return [];
+}
+
+function installedFontFamilies() {
+  try {
+    const output = execFileSync('fc-list', [':', 'family'], {
+      encoding: 'utf8',
+      timeout: 30000,
+      maxBuffer: 16 * 1024 * 1024,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    const families = new Set();
+    for (const line of output.split('\n')) {
+      for (const name of line.split(',')) {
+        const value = name.trim().toLowerCase();
+        if (value) families.add(value);
+      }
+    }
+    return families;
+  } catch {
+    return null;
+  }
+}
+
+// 用户可能自定义了 fontconfig（如把 SimSun 映射到 Noto Sans）。
+// 检测到这种别名时，给导出用的 Chrome 一个空的 XDG_CONFIG_HOME，
+// 让它读取系统字体配置和实际安装的字体，同时不改动用户的桌面配置。
+async function createFontConfigHome(fontCn) {
+  if (process.platform !== 'linux') return null;
+  const installed = installedFontFamilies();
+  if (!installed) return null;
+  const candidates = ['SimSun', '宋体', 'NSimSun', '新宋体'];
+  if (fontCn) candidates.unshift(fontCn);
+  const seen = new Set();
+  for (const family of candidates) {
+    const key = String(family).trim().toLowerCase();
+    if (!key || seen.has(key) || !installed.has(key)) continue;
+    seen.add(key);
+    let matched = '';
+    try {
+      matched = execFileSync('fc-match', ['-f', '%{family}', family], {
+        encoding: 'utf8',
+        timeout: 5000,
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).trim();
+    } catch {
+      continue;
+    }
+    const resolved = matched.split(',').map((name) => name.trim().toLowerCase());
+    if (!resolved.includes(key)) {
+      return await mkdtemp(path.join(tmpdir(), 'fenbi-pdf-fontconfig-'));
+    }
+  }
+  return null;
 }
 
 function printFontList() {
@@ -864,10 +919,12 @@ async function main() {
     }
 
     console.log('正在启动浏览器...');
+    fontConfigHome = await createFontConfigHome(options.font);
     currentSession = await ChromeSession.launch({
       profileDir: PROFILE_DIR,
       headless,
       chromePath: options.chrome || undefined,
+      env: fontConfigHome ? { XDG_CONFIG_HOME: fontConfigHome } : undefined,
     });
     const session = currentSession;
 
@@ -910,6 +967,10 @@ async function main() {
       } catch {}
       currentSession = null;
     }
+    if (fontConfigHome) {
+      try { rmSync(fontConfigHome, { recursive: true, force: true }); } catch {}
+      fontConfigHome = null;
+    }
   }
 }
 
@@ -918,6 +979,10 @@ const shutdown = async (signal) => {
   shuttingDown = true;
   console.error(`\n收到 ${signal}，正在关闭浏览器...`);
   try { await currentSession?.close(); } catch {}
+  if (fontConfigHome) {
+    try { rmSync(fontConfigHome, { recursive: true, force: true }); } catch {}
+    fontConfigHome = null;
+  }
   process.exit(130);
 };
 process.once('SIGINT', () => shutdown('SIGINT'));
