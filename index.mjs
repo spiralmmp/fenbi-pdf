@@ -34,7 +34,7 @@ function printHelp() {
   console.log(`粉笔试卷解析导出工具
 
 仅用于导出本人已购买或有权访问的试卷内容，不会绕过会员、付费或登录限制。
-PDF 按题号整理，仅包含答案和解析，不包含题干、选项和材料。
+PDF 按题号整理：行测导出答案和解析，申论导出参考答案和答题演示，均不包含完整材料。
 
 用法：
   ${RUN_COMMAND} <答案解析页面URL>
@@ -59,8 +59,8 @@ PDF 按题号整理，仅包含答案和解析，不包含题干、选项和材�
   -h, --help         显示帮助
 
 首次使用：
-  直接运行工具，按提示粘贴试卷的“答案解析页面”链接（地址栏中包含
-  /ti/exam/solution/ 的页面）。未登录时会先打开粉笔首页，请手动完成登录，
+  直接运行工具，按提示粘贴试卷的“答案解析页面”链接：行测地址栏包含
+  /ti/exam/solution/，申论包含 /ti/view/paper/。未登录时会先打开粉笔首页，请手动完成登录，
   再回到终端按回车；登录状态保存在 browser-profile/ 中。
   该目录包含登录 Cookie，请勿分享或上传。
   注意：未登录时直接打开解析页可能显示 about:blank，这是粉笔的页面行为。
@@ -628,6 +628,68 @@ function reportFailure(error, options) {
   }
 }
 
+function isShenlunUrl(address) {
+  try {
+    const parsed = new URL(address);
+    return /\/ti\/view\/paper\//.test(parsed.pathname) || parsed.searchParams.get('routecs') === 'shenlun';
+  } catch { return false; }
+}
+
+async function startSolutionCapture(session) {
+  const targets = new Map();
+  const finished = new Set();
+  await session.page.send('Network.enable');
+  await session.page.send('Network.setCacheDisabled', { cacheDisabled: true });
+  const offResponse = session.page.on('Network.responseReceived', (params) => {
+    const address = params.response?.url || '';
+    if (/\/combine\/(?:cdn\/paper\/solution|exercise\/getPaperSolution)(?:[/?]|$)/.test(address)) {
+      targets.set(params.requestId, address);
+    }
+  });
+  const offFinished = session.page.on('Network.loadingFinished', (params) => {
+    if (targets.has(params.requestId)) finished.add(params.requestId);
+  });
+  const solutionReady = () =>
+    [...targets].some(([requestId, address]) =>
+      finished.has(requestId) && address.includes('/combine/cdn/paper/solution/'));
+  return {
+    async wait(timeout = 8000) {
+      const deadline = Date.now() + timeout;
+      while (Date.now() < deadline && !solutionReady()) await sleep(200);
+    },
+    async finish() {
+      offResponse();
+      offFinished();
+      const payloads = [];
+      for (const [requestId, address] of targets) {
+        try {
+          const body = await session.page.send('Network.getResponseBody', { requestId }, 10000);
+          const text = body.base64Encoded ? Buffer.from(body.body, 'base64').toString('utf8') : body.body;
+          payloads.push({ url: address, text });
+        } catch {}
+      }
+      return payloads;
+    },
+  };
+}
+
+function findCapturedShenlun(payloads) {
+  for (const payload of payloads) {
+    let json;
+    try { json = JSON.parse(payload.text); } catch { continue; }
+    const data = Array.isArray(json?.solutions)
+      ? json
+      : (Array.isArray(json?.data?.solutions) ? json.data : null);
+    if (!data) continue;
+    if (!data.solutions.some((question) =>
+      question?.tikuPrefix === 'shenlun' ||
+      (Array.isArray(question?.solutionAccessories) &&
+        question.solutionAccessories.some((entry) => entry?.label === 'reference' || entry?.label === 'demonstrate')))) continue;
+    return { name: data.name || '', solutions: data.solutions, card: data.card || null };
+  }
+  return null;
+}
+
 async function exportPaper(session, url, options, context = {}) {
   const { loginFlow = false } = context;
   let debugDirectory = null;
@@ -637,8 +699,20 @@ async function exportPaper(session, url, options, context = {}) {
   }
 
   console.log(`正在打开：${url}`);
-  await session.navigate(url, { timeout: 90000, settle: 1200 });
+  const solutionCapture = isShenlunUrl(url) ? await startSolutionCapture(session) : null;
+  try {
+    await session.navigate(url, { timeout: 90000, settle: 1200 });
+  } catch (error) {
+    await solutionCapture?.finish().catch(() => {});
+    throw error;
+  }
   if (options.wait) await sleep(options.wait);
+  let capturedShenlun = null;
+  if (solutionCapture) {
+    await solutionCapture.wait(8000);
+    const capturedPayloads = await solutionCapture.finish();
+    capturedShenlun = options.api ? findCapturedShenlun(capturedPayloads) : null;
+  }
   let opened = await pageInfo(session);
   if (loginFlow && isBlankPage(opened)) {
     await sleep(1500);
@@ -680,9 +754,16 @@ async function exportPaper(session, url, options, context = {}) {
     console.log('正在尝试粉笔接口提取...');
     let apiResult = null;
     try {
+      if (capturedShenlun) {
+        await session.evaluate(`window.__fenbiCapturedSolution = ${JSON.stringify(capturedShenlun)};`, { timeout: 30000 });
+      }
       apiResult = await session.evaluate(fenbiApiExtractScript, { timeout: 30000 });
     } catch (error) {
       if (options.debug) console.log(`接口提取失败：${error.message}`);
+    } finally {
+      if (capturedShenlun) {
+        try { await session.evaluate('delete window.__fenbiCapturedSolution', { timeout: 5000 }); } catch {}
+      }
     }
     const apiQuestions = apiResult?.ok ? (apiResult.questions || []) : [];
     const meaningful = apiQuestions.filter((question) => question.answer || question.analyses?.length);
